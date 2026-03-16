@@ -1,0 +1,111 @@
+---
+title: "R A08 - ANCOVA"
+output: html_notebook
+---
+
+
+### 1. Read in the Obesity.xlsx file.  
+
+Note: no tricks this time...  No leading spaces, but it never hurts to included a white space argument if it exists for the function you use to read the data.
+
+```{r}
+library(readxl)
+fat <- read_xlsx("//Users/beatrizmorales/Downloads/Obesity.xlsx", 1)
+fat
+fat$WEIGHT
+```
+
+### 2. Change the name of the CAEC column to SNACKS and make it a factor with the following Code - Label combinations 
+
+0 - no = does not snack between meals
+1 - Sometimes
+2 - Frequently
+3 - Always
+
+This was covered in an early video.
+```{r}
+library(readxl)
+fat <- read_xlsx("//Users/beatrizmorales/Downloads/Obesity.xlsx", 1)
+fat
+names(fat)[names(fat) == "CAEC"] <- "SNACKS"
+fat$SNACKS <- factor(fat$SNACKS,
+                     levels = c("0", "1", "2", "3"),
+                     labels = c("no = does not snack between meals",
+                                "Sometimes",
+                                "Frequently",
+                                "Always"))
+table(fat$SNACKS)
+```
+
+### 3. Display the groupings showing the number of people in each group, the mean of the group, and the standard deviation of the group.
+```{r}
+library(dplyr)
+summary_by_snacks <- fat %>%
+  group_by(SNACKS) %>%
+  summarize(
+    n = n(),
+    mean_weight = mean(WEIGHT, na.rm = TRUE),
+    sd_weight = sd(WEIGHT, na.rm = TRUE)
+  )
+print(summary_by_snacks)
+```
+
+
+### 4. Fit an ANCOVA model comparing the means of WEIGHT among SNACKS groups while controlling for AGE.
+```{r}
+fat <- fat_raw
+ancova_model <- aov(WEIGHT ~ SNACKS + AGE, data = fat)
+summary(ancova_model)
+```
+
+### 5. Show the adjusted WEIGHT means by SNACKS groups after ANCOVA controlled for AGE.
+```{r}
+install.packages("emmeans")
+library(emmeans)
+```
+```{r}
+adjusted_means <- emmeans(ancova_model, ~ SNACKS)
+summary(adjusted_means)
+```
+
+### 6. Were the WEIGHT values by SNACKS group different after controlling for AGE?  How do you know?
+--- Answer 6. below this line
+#The WEIGHT values by SNACKS group were significantly different even after controlling for AGE based on the ANCOVA output. Individuals who snack more frequently tend to weigh more on average, than those who snack less even when their ages are the same. Also the p-value for SNACKS is <2e-16 which is less than 0.05.
+--- Answer 6. above this line
+
+
+### 7. Did the SNACKS groups have different means, after controlling for AGE? (Yes/No).  How do you know?  I'm not asking which ones...just is there evidence that the SNACKS groups had different means.  What is your evidence?
+--- Answer 7. below this line
+#Yes the SNACKS groups had different means after controlling for AGE. The p-value for SNACKS is less than 0.05, indicating the effect of SNACKS on WEIGHT is statistically significant even after adjusting for AGE.
+--- Answer 7. above this line
+
+### 8. Using the Contrasts method discussed in the ANCOVA videos, compare mean WEIGHT of the 0 - No [snacking] group with the average mean WEIGHT of the other groups.
+```{r}
+install.packages("mvtnorm")
+install.packages("survival")
+install.packages("TH.data")
+install.packages("MASS")
+library(multcomp)
+contrast_matrix <- rbind("No vs Others" = c(1, -1/3, -1/3, -1/3))
+contrast_result <- glht(ancova_model, linfct = mcp(SNACKS = contrast_matrix))
+summary(contrast_result)
+```
+
+### 9. Did the result shown in 8. show that that were was a difference in mean WEIGHT between respondents that did not snack compared to the ones that did snack?
+--- Answer 9. below this line
+#No, the result shown in 8. did not show a significant difference in mean WEIGHT between respondents who did not snack and those who did snack. The p-value (0.55) indicates the observed difference could easily be due to random chance.
+--- Answer 9. above this line
+
+
+### 10. Create a visualization showing the relationship between WEIGHT, the covariate (AGE), and the factor (SNACKS)
+```{r}
+library(ggplot2)
+ggplot(fat, aes(x = AGE, y = WEIGHT, color = SNACKS)) +
+  geom_point(alpha = 0.5) + 
+  geom_smooth(method = "lm", se = TRUE) + 
+  labs(title = "Relationship between Weight, Age, and Snacking Behavior",
+       x = "Age",
+       y = "Weight",
+       color = "Snacking Behavior") +
+  theme_minimal()
+```
